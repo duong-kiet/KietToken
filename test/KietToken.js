@@ -49,7 +49,7 @@ describe("KietToken Contract", function () {
       await expect(
         kietToken
           .connect(addr1)
-          .mint(addr1.address, ethers.parseUnits("1000", 18))
+          .mint(addr2.address, ethers.parseUnits("1000", 18))
       ).to.be.revertedWithCustomError(
         kietToken,
         "AccessControlUnauthorizedAccount"
@@ -104,6 +104,20 @@ describe("KietToken Contract", function () {
       await kietToken.revokeMinterRole(owner.address);
       expect(
         await kietToken.hasRole(await kietToken.MINTER_ROLE(), owner.address)
+      ).to.be.false;
+    });
+
+    it("Should grant BURNER_ROLE to another address by owner", async function () {
+      await kietToken.grantBurnerRole(addr2.address);
+      expect(
+        await kietToken.hasRole(await kietToken.BURNER_ROLE(), addr2.address)
+      ).to.be.true;
+    });
+
+    it("Should revoke BURNER_ROLE from an address by owner", async function () {
+      await kietToken.revokeBurnerRole(owner.address);
+      expect(
+        await kietToken.hasRole(await kietToken.BURNER_ROLE(), owner.address)
       ).to.be.false;
     });
 

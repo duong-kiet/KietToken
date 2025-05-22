@@ -45,9 +45,4 @@ contract KietToken is ERC20Capped, AccessControl {
     function revokeBurnerRole(address account) public onlyRole(DEFAULT_ADMIN_ROLE) {
         _revokeRole(BURNER_ROLE, account);
     }
-
-    modifier onlyOwner {
-        require(msg.sender == owner, "Only owner can call this function");
-        _;
-    }
 }
