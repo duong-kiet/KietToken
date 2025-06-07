@@ -20,24 +20,36 @@ contract MultipleVesting is MinimalProxy, Ownable {
    uint constant SECONDS_IN_DAY = 86400;
    uint constant DAYS_IN_YEAR = 365;
 
-   uint constant cliffFounder = 1 * 60 ; // 3 phút 
-   uint constant cliffAdvisor =  2 * 60 ; // 3 phút 
-   uint constant cliffEmployee =  1 * 60 ; // 3 phút 
-   uint constant vestingTimeFounder =  2 * 60 ; // 3 phút 
-   uint constant vestingTimeAdvisor = 3 * 60 ; // 3 phút 
-   uint constant vestingTimeEmployee = 3 * 60 ; // 3 phút 
-
    struct VestingInformation {
       KietMultipleVestingWallet kietMultipleVestingWallet;
       bool isInVestingGroup;
    }
 
    mapping (address => VestingInformation) public VestingPerson;
+
+   mapping (string => uint) cliff;
+   mapping (string => uint) vestingTime;
+   mapping (string => uint ) totalVestedToken;
   
 
    constructor(address _token, address _kietMultipleVestingWalletAddress ) Ownable(msg.sender) {
       token = IERC20(_token);
       kietMultipleVestingWalletAddress = _kietMultipleVestingWalletAddress;
+
+      // cliff 
+      cliff["Founder"] = 1 * 60;
+      cliff["Advisor"] = 2 * 60;
+      cliff["Employee"] = 1 * 60;
+
+      // vestingTime 
+      vestingTime["Founder"] = 2 * 60;
+      vestingTime["Advisor"] = 3 * 60;
+      vestingTime["Employee"] = 3 * 60;
+
+      // totatlVestedToken 
+      totalVestedToken["Founder"] = 500;
+      totalVestedToken["Advisor"] = 150;
+      totalVestedToken["Employee"] = 100;
    }
 
    function getBalance(address _account) external view returns (uint256){
@@ -48,46 +60,25 @@ contract MultipleVesting is MinimalProxy, Ownable {
    event TokenClaimed(address indexed beneficiary, uint tokenClaimed );
 
    function addVesting(address _address, string memory _role) public onlyOwner {
+      require(keccak256(bytes(_role)) == keccak256(bytes("Founder")) || 
+         keccak256(bytes(_role)) == keccak256(bytes("Advisor")) || 
+         keccak256(bytes(_role)) == keccak256(bytes("Employee")), "Role is not valid");
 
       if (VestingPerson[_address].isInVestingGroup) {
         require(VestingPerson[_address].kietMultipleVestingWallet.checkNotDuplicateRole(_role), "You already in vesting group with this role");
 
-        if (keccak256(bytes(_role)) == keccak256(bytes("Founder")))  {
-            VestingPerson[_address].kietMultipleVestingWallet.addVestingWallet(_role, uint64(block.timestamp + cliffFounder), uint64(vestingTimeFounder), 500);
-            token.transfer(address(VestingPerson[_address].kietMultipleVestingWallet), 500); 
-            emit VestingAdded(_address, _role, 500, uint64(block.timestamp + cliffFounder), uint64(vestingTimeFounder));
-        } else if (keccak256(bytes(_role)) == keccak256(bytes("Advisor"))) {
-            VestingPerson[_address].kietMultipleVestingWallet.addVestingWallet(_role, uint64(block.timestamp + cliffAdvisor), uint64(vestingTimeAdvisor), 150);
-            token.transfer(address(VestingPerson[_address].kietMultipleVestingWallet), 150); 
-            emit VestingAdded(_address, _role, 500, uint64(block.timestamp + cliffAdvisor), uint64(vestingTimeAdvisor));
-        } else {
-            VestingPerson[_address].kietMultipleVestingWallet.addVestingWallet(_role, uint64(block.timestamp + cliffEmployee), uint64(vestingTimeEmployee), 100);
-            token.transfer(address(VestingPerson[_address].kietMultipleVestingWallet), 100); 
-            emit VestingAdded(_address, _role, 100, uint64(block.timestamp + cliffEmployee), uint64(vestingTimeEmployee));
-        }
-
+         VestingPerson[_address].kietMultipleVestingWallet.addVestingWallet(_role, uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]), 500);
+         token.transfer(address(VestingPerson[_address].kietMultipleVestingWallet), totalVestedToken[_role]); 
+         emit VestingAdded(_address, _role, uint64(totalVestedToken[_role]), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]));
+        
       } else {
          address payable proxy = createClone(kietMultipleVestingWalletAddress); // clone địa chỉ của KietMultipleVestingWallet 
          
-         if (keccak256(bytes(_role)) == keccak256(bytes("Founder")))  {
-            KietMultipleVestingWallet(proxy).initialized(_address, _role, uint64(block.timestamp + cliffFounder), uint64(vestingTimeFounder), 500); // ép kiểu address về KietVestingWallet 
-            VestingPerson[_address] = VestingInformation(KietMultipleVestingWallet(proxy), true);
-            token.transfer(address(KietMultipleVestingWallet(proxy)), 500);  
-            emit VestingAdded(_address, _role, 500, uint64(block.timestamp + cliffFounder), uint64(vestingTimeFounder));
+         KietMultipleVestingWallet(proxy).initialized(_address, _role, uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]), totalVestedToken[_role]);
+         VestingPerson[_address] = VestingInformation(KietMultipleVestingWallet(proxy), true);
+         token.transfer(address(KietMultipleVestingWallet(proxy)), totalVestedToken[_role]); 
+         emit VestingAdded(_address, _role, uint64(totalVestedToken[_role]), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]));
 
-         } else if (keccak256(bytes(_role)) == keccak256(bytes("Advisor"))) {
-            KietMultipleVestingWallet(proxy).initialized(_address, _role, uint64(block.timestamp + cliffAdvisor), uint64(vestingTimeAdvisor), 150);
-            VestingPerson[_address] = VestingInformation(KietMultipleVestingWallet(proxy), true);
-            token.transfer(address(KietMultipleVestingWallet(proxy)), 150); 
-            emit VestingAdded(_address, _role, 150, uint64(block.timestamp + cliffAdvisor), uint64(vestingTimeAdvisor));
-
-         } else {
-            KietMultipleVestingWallet(proxy).initialized(_address, _role, uint64(block.timestamp + cliffEmployee), uint64(vestingTimeEmployee), 100);
-            VestingPerson[_address] = VestingInformation(KietMultipleVestingWallet(proxy), true);
-            token.transfer(address(KietMultipleVestingWallet(proxy)), 100); 
-            emit VestingAdded(_address, _role, 100, uint64(block.timestamp + cliffEmployee), uint64(vestingTimeEmployee));
-
-         }
       }
    }
 
