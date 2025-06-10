@@ -11,9 +11,9 @@ contract KietToken is ERC20Capped, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
-    constructor() ERC20("KietToken", "KTK") ERC20Capped(10000 * (10 ** decimals())) {
+    constructor() ERC20("KietToken", "KTK") ERC20Capped(10000) {
         owner = payable(msg.sender);
-        _mint(owner, 6000 * (10 ** decimals()));
+        _mint(owner, 6000);
 
         _grantRole(DEFAULT_ADMIN_ROLE, owner);
         _grantRole(MINTER_ROLE, owner);

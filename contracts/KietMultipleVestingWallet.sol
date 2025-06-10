@@ -16,7 +16,7 @@ contract KietMultipleVestingWallet is Context {
     mapping(address token => uint256) private _erc20Released;
     uint64[] private _start;
     uint64[] private _duration;
-    string[] private _role;
+    uint8[] private _role;
     uint256[] private _totalToken; 
 
     address private _beneficiary;
@@ -28,17 +28,17 @@ contract KietMultipleVestingWallet is Context {
      * wallet.
      */
 
-    function initialized(address beneficiary, string memory role, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) external {
+    function initialized(address beneficiary, uint8 role, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) external {
         require(!_initialized, "Already initialized");
         _initialized = true;
 
         addVestingWallet(role, startTimestamp, durationSeconds, totalAmount);
 
-        require(beneficiary != address(0), "Address is not exist");
+        require(beneficiary != address(0), "Zero address is not allowed");
         _beneficiary = beneficiary; 
     }
 
-    function addVestingWallet(string memory role, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) public  { 
+    function addVestingWallet(uint8 role, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) public  { 
         _start.push(startTimestamp);
         _duration.push(durationSeconds);
         _role.push(role);
@@ -127,9 +127,9 @@ contract KietMultipleVestingWallet is Context {
         }
     }
 
-    function checkNotDuplicateRole(string memory role) public view returns (bool) {
+    function checkNotDuplicateRole(uint8 role) public view returns (bool) {
         for (uint64 i = 0; i < _role.length ; i++) {
-            if (keccak256(bytes(role)) == keccak256(bytes(_role[i]))) {
+            if (role == _role[i]) {
                 return false;
             }
         }
