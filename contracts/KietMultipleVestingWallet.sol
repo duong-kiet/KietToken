@@ -14,12 +14,17 @@ contract KietMultipleVestingWallet is Context {
 
     uint256 private _released;
     mapping(address token => uint256) private _erc20Released;
-    uint64[] private _start;
-    uint64[] private _duration;
-    uint8[] private _role;
-    uint256[] private _totalToken; 
+
+    struct VestingSchedule {
+        uint64 start;
+        uint64 duration;
+        uint256 totalToken;
+    }
+
+    VestingSchedule[] private _schedules;
 
     address private _beneficiary;
+    address private _factory; 
 
     bool private _initialized;
 
@@ -28,21 +33,25 @@ contract KietMultipleVestingWallet is Context {
      * wallet.
      */
 
-    function initialized(address beneficiary, uint8 role, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) external {
+    constructor() {
+        _initialized = true;
+    }
+
+    function initialized(address beneficiary, address factory, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) external {
         require(!_initialized, "Already initialized");
         _initialized = true;
 
-        addVestingWallet(role, startTimestamp, durationSeconds, totalAmount);
-
         require(beneficiary != address(0), "Zero address is not allowed");
         _beneficiary = beneficiary; 
+
+        _factory = factory;
+
+        _schedules.push(VestingSchedule(startTimestamp, durationSeconds, totalAmount));
     }
 
-    function addVestingWallet(uint8 role, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) public  { 
-        _start.push(startTimestamp);
-        _duration.push(durationSeconds);
-        _role.push(role);
-        _totalToken.push(totalAmount);
+    function addVestingWallet(address callPerson, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) public { 
+        require(callPerson == _factory, "Not factory owner");
+        _schedules.push(VestingSchedule(startTimestamp, durationSeconds, totalAmount));
     }
 
     /**
@@ -54,14 +63,14 @@ contract KietMultipleVestingWallet is Context {
      * @dev Getter for the start timestamp.
      */
     function start(uint64 i) public view virtual returns (uint256) {
-        return _start[i];
+        return _schedules[i].start;
     }
 
     /**
      * @dev Getter for the vesting duration.
      */
     function duration(uint64 i) public view virtual returns (uint256) {
-        return _duration[i];
+        return _schedules[i].duration;
     }
 
     /**
@@ -72,7 +81,7 @@ contract KietMultipleVestingWallet is Context {
     }
 
     function totalToken(uint64 i) public view virtual returns (uint256) {
-        return _totalToken[i];
+        return _schedules[i].totalToken;
     }
 
     /**
@@ -116,7 +125,7 @@ contract KietMultipleVestingWallet is Context {
     function _vestingSchedule(uint64 timestamp) internal view virtual returns (uint256 totalAllocation) {
         totalAllocation = 0;
 
-        for (uint64 i = 0; i < _start.length ; i++) {
+        for (uint64 i = 0; i < _schedules.length ; i++) {
             if (timestamp < start(i)) {
                 totalAllocation += 0;
             } else if (timestamp >= end(i)){
@@ -125,14 +134,5 @@ contract KietMultipleVestingWallet is Context {
                 totalAllocation += (totalToken(i) * (timestamp - start(i))) / duration(i);
             }
         }
-    }
-
-    function checkNotDuplicateRole(uint8 role) public view returns (bool) {
-        for (uint64 i = 0; i < _role.length ; i++) {
-            if (role == _role[i]) {
-                return false;
-            }
-        }
-        return true;
     }
 }

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./KietMultipleVestingWallet.sol";
 
-contract MultipleVesting is  Ownable {
+contract MultipleVesting is Ownable {
    IERC20 public token;
    address public kietMultipleVestingWalletAddress;
 
@@ -22,6 +22,7 @@ contract MultipleVesting is  Ownable {
 
    struct VestingInformation {
       KietMultipleVestingWallet kietMultipleVestingWallet;
+      Role[] role;
       bool isInVestingGroup;
    }
 
@@ -32,9 +33,10 @@ contract MultipleVesting is  Ownable {
    mapping (Role => uint ) totalVestedToken;
   
 
-   constructor(address _token, address _kietMultipleVestingWalletAddress ) Ownable(msg.sender) {
-      token = IERC20(_token);
-      kietMultipleVestingWalletAddress = _kietMultipleVestingWalletAddress;
+   constructor() Ownable(msg.sender) {
+      // fix cố định địa chỉ của token ERC20 và KietMultipleVestingWallet 
+      token = IERC20(0xEC5ef95575F1c4A56C7c576F8a18C14B73A7f188);
+      kietMultipleVestingWalletAddress = 0xC61d78A92B7DfdF85fAB1c22135977721dd96F4c;
 
       // cliff 
       cliff[Role.Founder] = 1 * 60;
@@ -60,55 +62,55 @@ contract MultipleVesting is  Ownable {
    event TokenClaimed(address indexed beneficiary, uint tokenClaimed );
 
    function addVesting(address _address, Role _role) public onlyOwner {
-      require(_role == Role.Advisor || _role == Role.Employee || _role == Role.Founder, "Role is not valid");
-
       if (VestingPerson[_address].isInVestingGroup) {
-        require(VestingPerson[_address].kietMultipleVestingWallet.checkNotDuplicateRole(uint8(_role)), "You already in vesting group with this role");
+         require(checkNotDuplicateRole(_address, _role), "You already in vesting group with this role");
 
-         VestingPerson[_address].kietMultipleVestingWallet.addVestingWallet(uint8(_role), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]), 500);
+         VestingPerson[_address].kietMultipleVestingWallet.addVestingWallet(owner(), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]), totalVestedToken[_role]);
          token.transfer(address(VestingPerson[_address].kietMultipleVestingWallet), totalVestedToken[_role]); 
          emit VestingAdded(_address, _role, uint64(totalVestedToken[_role]), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]));
         
       } else {
          address payable proxy = payable(Clones.clone(kietMultipleVestingWalletAddress)); // clone địa chỉ của KietMultipleVestingWallet 
          
-         KietMultipleVestingWallet(proxy).initialized(_address, uint8(_role), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]), totalVestedToken[_role]);
-         VestingPerson[_address] = VestingInformation(KietMultipleVestingWallet(proxy), true);
+         KietMultipleVestingWallet(proxy).initialized(_address, owner(), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]), totalVestedToken[_role]);
+
+         VestingPerson[_address].role.push(_role);
+         VestingPerson[_address] = VestingInformation(KietMultipleVestingWallet(proxy),  VestingPerson[_address].role , true);
          token.transfer(address(KietMultipleVestingWallet(proxy)), totalVestedToken[_role]); 
          emit VestingAdded(_address, _role, uint64(totalVestedToken[_role]), uint64(block.timestamp + cliff[_role]), uint64(vestingTime[_role]));
 
       }
    }
 
-   function claimToken() public {
-      require(VestingPerson[msg.sender].isInVestingGroup, "You are not in vesting group");
-      uint tokenClaimed = getReleasableToken();
-      VestingPerson[msg.sender].kietMultipleVestingWallet.release(address(token));
-      emit TokenClaimed(msg.sender, tokenClaimed);
+   function checkNotDuplicateRole(address _person, Role _role) private view returns (bool) {
+      for (uint64 i = 0; i < VestingPerson[_person].role.length ; i++) {
+         if (_role == VestingPerson[_person].role[i]) {
+            return false;
+         }
+      }
+      return true;
    }
 
-   function getVestedToken() public view returns (uint) {
-      require(VestingPerson[msg.sender].isInVestingGroup, "You are not in vesting group");
-      return VestingPerson[msg.sender].kietMultipleVestingWallet.vestedAmount(uint64(block.timestamp));
-   }
+   // function claimToken() public {
+   //    require(VestingPerson[msg.sender].isInVestingGroup, "You are not in vesting group");
+   //    uint tokenClaimed = getReleasableToken();
+   //    VestingPerson[msg.sender].kietMultipleVestingWallet.release(address(token));
+   //    emit TokenClaimed(msg.sender, tokenClaimed);
+   // }
 
-   function getReleasableToken() public view returns(uint256) {
-      require(VestingPerson[msg.sender].isInVestingGroup, "You are not in vesting group");
-      return VestingPerson[msg.sender].kietMultipleVestingWallet.releasable(address(token));
-   }
+   // function getVestedToken() public view returns (uint) {
+   //    require(VestingPerson[msg.sender].isInVestingGroup, "You are not in vesting group");
+   //    return VestingPerson[msg.sender].kietMultipleVestingWallet.vestedAmount(uint64(block.timestamp));
+   // }
 
-   function getTokenAddress() public view returns(address) {
-      return address(token);
-   }
+   // function getReleasableToken() public view returns(uint256) {
+   //    require(VestingPerson[msg.sender].isInVestingGroup, "You are not in vesting group");
+   //    return VestingPerson[msg.sender].kietMultipleVestingWallet.releasable(address(token));
+   // }
+
+   // function getTokenAddress() public view returns(address) {
+   //    return address(token);
+   // }
 }   
 
-// Owner Token: 0x5B38Da6a701c568545dCfcB03FcB875f56beddC4
-
-// KietToken address: 0x7874d94b8f9E2a28FCceCE404666C984f33a82b8
-
-// KietMultipleVestingWallet address: 0x19a0870a66B305BE9917c0F14811C970De18E6fC
-
-// MultipleVesting address:  0xC8CF29d9D1595a3588AD36E6349A0E9a5b632720
-
 // Founder 1: 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2 
-
