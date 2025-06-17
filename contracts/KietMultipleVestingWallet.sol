@@ -26,6 +26,8 @@ contract KietMultipleVestingWallet is Context {
     address private _beneficiary;
     address private _factory; 
 
+    address constant kietTokenAddress = 0x07Cb88b1d6E06a5fd54Ae8d4A71713BF822f4389;
+
     bool private _initialized;
 
     /**
@@ -49,14 +51,19 @@ contract KietMultipleVestingWallet is Context {
         _schedules.push(VestingSchedule(startTimestamp, durationSeconds, totalAmount));
     }
 
-    function addVestingWallet(address callPerson, uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) public { 
-        require(callPerson == _factory, "Not factory owner");
+    modifier onlyFactory() {
+        require(msg.sender == _factory, "Not factory owner");
+        _;
+    }
+    
+    function addVestingWallet(uint64 startTimestamp, uint64 durationSeconds, uint256 totalAmount) external onlyFactory { 
         _schedules.push(VestingSchedule(startTimestamp, durationSeconds, totalAmount));
     }
 
     /**
      * @dev The contract should be able to receive Eth.
      */
+
     receive() external payable virtual {}
 
     /**
@@ -87,16 +94,16 @@ contract KietMultipleVestingWallet is Context {
     /**
      * @dev Amount of token already released
      */
-    function released(address token) public view virtual returns (uint256) {
-        return _erc20Released[token];
+    function released() public view virtual returns (uint256) {
+        return _erc20Released[kietTokenAddress];
     }
 
     /**
      * @dev Getter for the amount of releasable `token` tokens. `token` should be the address of an
      * {IERC20} contract.
      */
-    function releasable(address token) public view virtual returns (uint256) {
-        return vestedAmount(uint64(block.timestamp)) - released(token);
+    function releasable() public view virtual returns (uint256) {
+        return vestedAmount(uint64(block.timestamp)) - released();
     }
 
     /**
@@ -104,11 +111,11 @@ contract KietMultipleVestingWallet is Context {
      *
      * Emits a {ERC20Released} event.
      */
-    function release(address token) public virtual {
-        uint256 amount = releasable(token);
-        _erc20Released[token] += amount;
-        emit ERC20Released(token, amount);
-        SafeERC20.safeTransfer(IERC20(token), _beneficiary, amount);
+    function release() public virtual {
+        uint256 amount = releasable();
+        _erc20Released[kietTokenAddress] += amount;
+        emit ERC20Released(kietTokenAddress, amount);
+        SafeERC20.safeTransfer(IERC20(kietTokenAddress), _beneficiary, amount);
     }
 
     /**
